@@ -21,7 +21,7 @@ export default function BillingDatesPage() {
         if (!res.ok) throw new Error("Failed to load billing dates");
         return res.json();
       })
-      .then((data) => setDates(data.billingDates))
+      .then((data) => setDates(data.data?.billingDates || data.billingDates || []))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
@@ -43,13 +43,21 @@ export default function BillingDatesPage() {
                 </tr>
               </thead>
               <tbody>
-                {dates.map((date) => (
-                  <tr key={date.id} className="border-t">
-                    <td className="py-3">{date.name}</td>
-                    <td className="py-3">{date.startDay}</td>
-                    <td className="py-3">{date.paymentTerms}</td>
+                {(dates || []).length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="py-6 text-center text-muted-foreground text-sm">
+                      No billing dates configured.
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  (dates || []).map((date) => (
+                    <tr key={date.id} className="border-t">
+                      <td className="py-3">{date.name}</td>
+                      <td className="py-3">{date.startDay}</td>
+                      <td className="py-3">{date.paymentTerms}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

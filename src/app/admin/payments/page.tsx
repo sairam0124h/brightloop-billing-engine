@@ -57,11 +57,11 @@ function PaymentsContent() {
 
     if (pRes.ok) {
       const pData = await pRes.json();
-      setPayments(pData.data.payments);
+      setPayments(pData.data?.payments || []);
     }
     if (iRes.ok) {
       const iData = await iRes.json();
-      setInvoices(iData.data.invoices);
+      setInvoices(iData.data?.invoices || []);
     }
   }, []);
 
@@ -282,4 +282,3 @@ export default function AdminPaymentsPage() {
     </Suspense>
   );
 }
-

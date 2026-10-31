@@ -29,7 +29,7 @@ function InvoiceContent({ params }: { params: Promise<{ id: string }> }) {
         if (!res.ok) throw new Error("Failed to load invoice");
         return res.json();
       })
-      .then((data) => setInvoice(data.invoice))
+      .then((data) => setInvoice(data.data?.invoice || data.invoice || null))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [id]);

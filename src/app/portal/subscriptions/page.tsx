@@ -26,7 +26,7 @@ export default function SubscriptionsPage() {
         if (!res.ok) throw new Error("Failed to load subscriptions");
         return res.json();
       })
-      .then((data) => setSubscriptions(data.subscriptions))
+      .then((data) => setSubscriptions(data.data?.subscriptions || data.subscriptions || []))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
@@ -51,22 +51,30 @@ export default function SubscriptionsPage() {
                 </tr>
               </thead>
               <tbody>
-                {subscriptions.map((sub) => (
-                  <tr key={sub.id} className="border-t">
-                    <td className="py-3">{sub.productName}</td>
-                    <td className="py-3">{sub.planName}</td>
-                    <td className="py-3">
-                      <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
-                        {sub.status}
-                      </span>
+                {(subscriptions || []).length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-6 text-center text-muted-foreground text-sm">
+                      No subscriptions found.
                     </td>
-                    <td className="py-3 text-sm">
-                      {new Date(sub.periodStart).toLocaleDateString()} — {new Date(sub.periodEnd).toLocaleDateString()}
-                    </td>
-                    <td className="py-3">{sub.amount ? `₹${(sub.amount / 100).toFixed(2)}` : "—"}</td>
-                    <td className="py-3 text-sm">{sub.dueDate ? new Date(sub.dueDate).toLocaleDateString() : "—"}</td>
                   </tr>
-                ))}
+                ) : (
+                  (subscriptions || []).map((sub) => (
+                    <tr key={sub.id} className="border-t">
+                      <td className="py-3">{sub.productName}</td>
+                      <td className="py-3">{sub.planName}</td>
+                      <td className="py-3">
+                        <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300">
+                          {sub.status}
+                        </span>
+                      </td>
+                      <td className="py-3 text-sm">
+                        {new Date(sub.periodStart).toLocaleDateString()} — {new Date(sub.periodEnd).toLocaleDateString()}
+                      </td>
+                      <td className="py-3">{sub.amount ? `₹${(sub.amount / 100).toFixed(2)}` : "—"}</td>
+                      <td className="py-3 text-sm">{sub.dueDate ? new Date(sub.dueDate).toLocaleDateString() : "—"}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

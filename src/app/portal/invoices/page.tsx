@@ -26,7 +26,7 @@ export default function InvoicesPage() {
         if (!res.ok) throw new Error("Failed to load invoices");
         return res.json();
       })
-      .then((data) => setInvoices(data.invoices))
+      .then((data) => setInvoices(data.data?.invoices || data.invoices || []))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
@@ -52,29 +52,37 @@ export default function InvoicesPage() {
                 </tr>
               </thead>
               <tbody>
-                {invoices.map((inv) => (
-                  <tr key={inv.id} className="border-t">
-                    <td className="py-3 font-mono text-sm">INV-{inv.id.slice(0, 8)}</td>
-                    <td className="py-3 text-sm">
-                      {new Date(inv.periodStart).toLocaleDateString()} — {new Date(inv.periodEnd).toLocaleDateString()}
-                    </td>
-                    <td className="py-3">₹{(inv.amount / 100).toFixed(2)}</td>
-                    <td className="py-3">
-                      <span
-                        className="inline-block px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800"
-                      >
-                        {inv.status}
-                      </span>
-                    </td>
-                    <td className="py-3 text-sm">{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : "—"}</td>
-                    <td className="py-3 text-sm">{inv.paidAt ? new Date(inv.paidAt).toLocaleDateString() : "—"}</td>
-                    <td className="py-3">
-                      <Link href={`/portal/invoices/${inv.id}`} className="text-blue-600 hover:underline text-sm">
-                        View
-                      </Link>
+                {(invoices || []).length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-6 text-center text-muted-foreground text-sm">
+                      No invoices found.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  (invoices || []).map((inv) => (
+                    <tr key={inv.id} className="border-t">
+                      <td className="py-3 font-mono text-sm">INV-{inv.id.slice(0, 8)}</td>
+                      <td className="py-3 text-sm">
+                        {new Date(inv.periodStart).toLocaleDateString()} — {new Date(inv.periodEnd).toLocaleDateString()}
+                      </td>
+                      <td className="py-3">₹{(inv.amount / 100).toFixed(2)}</td>
+                      <td className="py-3">
+                        <span
+                          className="inline-block px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800"
+                        >
+                          {inv.status}
+                        </span>
+                      </td>
+                      <td className="py-3 text-sm">{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : "—"}</td>
+                      <td className="py-3 text-sm">{inv.paidAt ? new Date(inv.paidAt).toLocaleDateString() : "—"}</td>
+                      <td className="py-3">
+                        <Link href={`/portal/invoices/${inv.id}`} className="text-blue-600 hover:underline text-sm">
+                          View
+                        </Link>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
