@@ -5,12 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { toast } from "sonner";
 
 interface StaffMember {
   id: string;
   email: string;
   name: string | null;
   role: string;
+  mustResetPassword: boolean;
   createdAt: string;
 }
 
@@ -22,12 +24,23 @@ export default function StaffPage() {
   const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
 
   async function loadStaff() {
-    const res = await fetch("/api/staff");
-    if (res.ok) {
-      const data = await res.json();
-      setStaff(data.staff);
+    try {
+      const res = await fetch("/api/staff");
+      if (res.status === 403) {
+        window.location.href = "/admin";
+        return;
+      }
+      if (res.ok) {
+        const body = await res.json();
+        setStaff(body.data?.staff || []);
+      }
+    } catch {
+      // Ignored in initial load
+    } finally {
+      setFetching(false);
     }
   }
 
@@ -38,92 +51,167 @@ export default function StaffPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
     try {
       const res = await fetch("/api/staff", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name: name || undefined, password }),
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          name: name.trim() || undefined,
+          password: password || undefined,
+        }),
       });
 
+      const body = await res.json();
       if (!res.ok) {
-        const err = await res.json();
-        if (err.error?.code === "FORBIDDEN") {
-          window.location.href = "/admin";
-          return;
+        if (res.status === 403) {
+          throw new Error("Only administrators can add staff members.");
         }
-        setError(err.error?.message || "Failed to create staff member");
-        return;
+        throw new Error(body.error?.message || "Failed to create staff member");
       }
 
-      const data = await res.json();
-      setTemporaryPassword(data.temporaryPassword);
+      setTemporaryPassword(body.data?.temporaryPassword || null);
       setEmail("");
       setName("");
       setPassword("");
+      toast.success("Staff member created successfully!");
       await loadStaff();
-    } catch {
-      setError("Failed to create staff member");
+    } catch (err: any) {
+      setError(err.message || "Failed to create staff member");
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Staff Management</h1>
+    <div className="max-w-5xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Staff Management</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Add team members with staff access. Only administrators can perform this action.
+        </p>
+      </div>
 
-      <Card className="space-y-4">
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+      {temporaryPassword && (
+        <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 rounded-lg space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-amber-900 dark:text-amber-200">
+              Temporary Password Generated (shown once):
+            </span>
+            <button
+              onClick={() => setTemporaryPassword(null)}
+              className="text-xs text-amber-700 dark:text-amber-400 hover:underline"
+            >
+              Dismiss
+            </button>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+          <div className="p-2 bg-white dark:bg-black rounded border font-mono text-sm break-all font-bold text-amber-900 dark:text-amber-100">
+            {temporaryPassword}
           </div>
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            Share this temporary password with the staff member. They will be required to reset it upon login.
+          </p>
+        </div>
+      )}
+
+      <Card className="p-6">
+        <h2 className="text-lg font-semibold mb-4">Add New Staff Member</h2>
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="password">Temporary Password</Label>
-            <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+            <Label htmlFor="staffEmail">Email Address</Label>
+            <Input
+              id="staffEmail"
+              type="email"
+              required
+              placeholder="colleague@brightloop.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </div>
-          <div className="sm:col-span-3">
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Creating..." : "Create Staff"}
+
+          <div className="space-y-2">
+            <Label htmlFor="staffName">Full Name (optional)</Label>
+            <Input
+              id="staffName"
+              placeholder="Alex Smith"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="staffPassword">Temporary Password (optional)</Label>
+            <Input
+              id="staffPassword"
+              type="password"
+              placeholder="Leave blank to auto-generate"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+
+          {error && (
+            <div className="md:col-span-3 text-sm text-destructive font-medium">{error}</div>
+          )}
+
+          <div className="md:col-span-3 flex justify-end">
+            <Button type="submit" disabled={loading}>
+              {loading ? "Creating..." : "Create Staff Account"}
             </Button>
           </div>
         </form>
-
-        {error && <p className="text-sm text-destructive">{error}</p>}
-
-        {temporaryPassword && (
-          <div className="bg-yellow-50 border border-yellow-200 p-3 rounded">
-            <p className="text-sm font-medium">Temporary password (shown once):</p>
-            <code className="block text-sm mt-1 break-all">{temporaryPassword}</code>
-            <p className="text-xs text-muted-foreground mt-2">User must reset password on next login.</p>
-          </div>
-        )}
       </Card>
 
-      <Card>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr>
-                <th className="text-left pb-3">Email</th>
-                <th className="text-left pb-3">Name</th>
-                <th className="text-left pb-3">Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {staff.map((s) => (
-                <tr key={s.id} className="border-t">
-                  <td className="py-3">{s.email}</td>
-                  <td className="py-3">{s.name || "-"}</td>
-                  <td className="py-3 text-sm text-muted-foreground">{new Date(s.createdAt).toLocaleDateString()}</td>
+      <Card className="p-6">
+        <h2 className="text-lg font-semibold mb-4">Current Staff Members</h2>
+        {fetching ? (
+          <div className="text-sm text-muted-foreground py-4">Loading staff members...</div>
+        ) : staff.length === 0 ? (
+          <div className="text-sm text-muted-foreground py-4">No staff members created yet.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-muted-foreground">
+                  <th className="pb-3 font-medium">Name</th>
+                  <th className="pb-3 font-medium">Email</th>
+                  <th className="pb-3 font-medium">Role</th>
+                  <th className="pb-3 font-medium">Password Reset Status</th>
+                  <th className="pb-3 font-medium">Created At</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y">
+                {staff.map((member) => (
+                  <tr key={member.id} className="hover:bg-muted/50">
+                    <td className="py-3 font-medium">{member.name || "—"}</td>
+                    <td className="py-3 font-mono text-xs">{member.email}</td>
+                    <td className="py-3">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200">
+                        {member.role}
+                      </span>
+                    </td>
+                    <td className="py-3">
+                      {member.mustResetPassword ? (
+                        <span className="text-amber-600 dark:text-amber-400 text-xs font-medium">
+                          Must Reset Password
+                        </span>
+                      ) : (
+                        <span className="text-emerald-600 dark:text-emerald-400 text-xs font-medium">
+                          Active
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 text-xs text-muted-foreground">
+                      {new Date(member.createdAt).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
     </div>
   );

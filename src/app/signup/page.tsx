@@ -8,116 +8,143 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 
-const RULES = [
-  { key: "length", label: "At least 9 characters" },
-  { key: "uppercase", label: "Contains an uppercase letter" },
-  { key: "lowercase", label: "Contains a lowercase letter" },
-  { key: "special", label: "Contains a special character" },
-];
-
 export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const [checking, setChecking] = useState(false);
-  const [showStrength, setShowStrength] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  function getChecklist(): Record<string, boolean> {
-    return {
-      length: password.length >= 9,
-      uppercase: /[A-Z]/.test(password),
-      lowercase: /[a-z]/.test(password),
-      special: /[^A-Za-z0-9]/.test(password),
-    };
-  }
+  const checklist = {
+    length: password.length > 8,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    special: /[^A-Za-z0-9]/.test(password),
+  };
+
+  const allRulesPassed =
+    checklist.length && checklist.uppercase && checklist.lowercase && checklist.special;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    setShowStrength(true);
-    await new Promise((r) => setTimeout(r, 150));
-    setShowStrength(false);
 
-    const userInfo = getChecklist();
-    const allPass = RULES.every((rule) => userInfo[rule.key]);
-    if (!allPass) return;
+    if (!allRulesPassed) {
+      setError("Please ensure your password satisfies all requirements below.");
+      return;
+    }
 
-    setChecking(true);
+    setLoading(true);
     try {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.toLowerCase(), name: name || undefined, password }),
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          name: name.trim() || undefined,
+          password,
+        }),
       });
 
+      const body = await res.json();
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error?.message || "Signup failed");
+        if (res.status === 409 || body.error?.code === "CONFLICT") {
+          throw new Error("An account with this email already exists. Please log in instead.");
+        }
+        throw new Error(body.error?.message || "Failed to create account");
       }
 
-      toast.success("Account created!");
-      window.location.href = "/login";
+      toast.success("Account created successfully!");
+      window.location.href = "/portal";
     } catch (e: any) {
-      setError(e.message || "Signup failed");
+      setError(e.message || "Failed to create account");
     } finally {
-      setChecking(false);
+      setLoading(false);
     }
   }
-
-  const checklist = getChecklist();
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-black p-4">
       <Card className="w-full max-w-md p-8 space-y-6">
-        <Link href="/" className="text-sm text-muted-foreground">← Back to home</Link>
-        <h1 className="text-2xl font-bold">Create Account</h1>
+        <div className="flex items-center justify-between">
+          <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">
+            ← Back to home
+          </Link>
+        </div>
+
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Create your account</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Get started with Brightloop subscription billing.
+          </p>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Label htmlFor="name">Full Name (optional)</Label>
+            <Input
+              id="name"
+              placeholder="Jane Doe"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="name">Name (optional)</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+            <Label htmlFor="email">Email address</Label>
+            <Input
+              id="email"
+              type="email"
+              required
+              placeholder="jane@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </div>
+
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-              <button
-                type="button"
-                onClick={() => setShowStrength(!showStrength)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
-              >
-                {showStrength ? "▲" : "▼"}
-              </button>
-            </div>
-
-            {showStrength && (
-              <div className="mt-2 space-y-1">
-                {RULES.map((rule) => (
-                  <label key={rule.key} className="block text-sm flex items-center gap-2">
-                    <span>{checklist[rule.key] ? "✓" : "○"}</span>
-                    <span>{rule.label}</span>
-                  </label>
-                ))}
-              </div>
-            )}
+            <Input
+              id="password"
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
           </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          <div className="space-y-1.5 text-xs text-muted-foreground rounded bg-zinc-50 dark:bg-zinc-900 p-3 border">
+            <div className="font-medium text-foreground mb-1">Password requirements:</div>
+            <div className={`flex items-center gap-1.5 ${checklist.length ? "text-emerald-600 dark:text-emerald-400 font-medium" : ""}`}>
+              <span>{checklist.length ? "✓" : "•"}</span>
+              <span>More than 8 characters (at least 9)</span>
+            </div>
+            <div className={`flex items-center gap-1.5 ${checklist.uppercase ? "text-emerald-600 dark:text-emerald-400 font-medium" : ""}`}>
+              <span>{checklist.uppercase ? "✓" : "•"}</span>
+              <span>At least one uppercase letter (A-Z)</span>
+            </div>
+            <div className={`flex items-center gap-1.5 ${checklist.lowercase ? "text-emerald-600 dark:text-emerald-400 font-medium" : ""}`}>
+              <span>{checklist.lowercase ? "✓" : "•"}</span>
+              <span>At least one lowercase letter (a-z)</span>
+            </div>
+            <div className={`flex items-center gap-1.5 ${checklist.special ? "text-emerald-600 dark:text-emerald-400 font-medium" : ""}`}>
+              <span>{checklist.special ? "✓" : "•"}</span>
+              <span>At least one special character (!@#$%^&*)</span>
+            </div>
+          </div>
 
-          <Button type="submit" className="w-full" disabled={checking}>
-            {checking ? "Creating..." : "Sign Up"}
+          {error && <p className="text-sm text-destructive font-medium">{error}</p>}
+
+          <Button type="submit" className="w-full" disabled={loading || !allRulesPassed}>
+            {loading ? "Creating account..." : "Sign Up"}
           </Button>
         </form>
 
-        <div className="pt-2 border-t text-sm text-muted-foreground">
+        <div className="text-center text-sm text-muted-foreground">
           Already have an account?{" "}
-          <Link href="/login" className="text-foreground hover:underline">Login here</Link>
+          <Link href="/login" className="text-primary hover:underline font-medium">
+            Log in
+          </Link>
         </div>
       </Card>
     </div>

@@ -5,7 +5,8 @@ import { withApi } from "@/lib/errors";
 import { createPasswordResetToken } from "@/server/auth/password-reset";
 import { Resend } from "resend";
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+const resendApiKey = process.env.RESEND_API_KEY?.trim();
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
 const APP_URL = process.env.APP_URL || "http://localhost:3000";
 
 export async function POST(request: NextRequest) {
@@ -13,9 +14,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email } = forgotPasswordSchema.parse(body);
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: "insensitive" } },
+    });
 
     if (!user) {
+      // Never reveal whether an email exists
       return { success: true };
     }
 
@@ -33,6 +37,9 @@ export async function POST(request: NextRequest) {
       console.log(`[DEV] Password reset link for ${user.email}: ${resetLink}`);
     }
 
-    return { success: true };
+    return {
+      success: true,
+      devResetLink: !resend ? resetLink : undefined,
+    };
   });
 }

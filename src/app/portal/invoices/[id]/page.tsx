@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use, Suspense } from "react";
 import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { formatINR } from "@/lib/money";
@@ -17,13 +17,14 @@ interface Invoice {
   lines?: any[];
 }
 
-export default function InvoiceDetailPage({ params }: { params: { id: string } }) {
+function InvoiceContent({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/portal/invoices/${params.id}`)
+    fetch(`/api/portal/invoices/${id}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load invoice");
         return res.json();
@@ -31,7 +32,7 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
       .then((data) => setInvoice(data.invoice))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [params.id]);
+  }, [id]);
 
   if (loading) return <p>Loading...</p>;
   if (error) return <p className="text-destructive">{error}</p>;
@@ -46,46 +47,45 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
         </Link>
       </div>
 
-      <Card className="space-y-6">
+      <Card className="space-y-6 p-6">
         <section>
-          <h2 className="text-lg font-semibold mb-3">Invoice Details</h2>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>Period: {new Date(invoice.periodStart).toLocaleDateString()} — {new Date(invoice.periodEnd).toLocaleDateString()}</div>
-            <div>Status: {invoice.status}</div>
-            <div>Amount: {formatINR(invoice.amount)}</div>
-            <div>Due: {invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : "—"}</div>
-            <div>Paid: {invoice.paidAt ? new Date(invoice.paidAt).toLocaleDateString() : "—"}</div>
+          <h2 className="text-lg font-semibold mb-2">Invoice Summary</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <p className="text-muted-foreground">Status</p>
+              <p className="font-medium">{invoice.status}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Amount</p>
+              <p className="font-medium">{formatINR(invoice.amount)}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Period</p>
+              <p className="font-medium">
+                {new Date(invoice.periodStart).toLocaleDateString()} – {new Date(invoice.periodEnd).toLocaleDateString()}
+              </p>
+            </div>
+            {invoice.dueDate && (
+              <div>
+                <p className="text-muted-foreground">Due Date</p>
+                <p className="font-medium">{new Date(invoice.dueDate).toLocaleDateString()}</p>
+              </div>
+            )}
           </div>
         </section>
-
-        {invoice.lines && invoice.lines.length > 0 && (
-          <section>
-            <h2 className="text-lg font-semibold mb-3">Line Items</h2>
-            <div className="border rounded-md">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-zinc-50 dark:bg-zinc-900">
-                    <th className="text-left p-3">Description</th>
-                    <th className="text-right p-3">Qty</th>
-                    <th className="text-right p-3">Unit Price</th>
-                    <th className="text-right p-3">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoice.lines.map((line, i) => (
-                    <tr key={i} className="border-b last:border-b-0">
-                      <td className="p-3">{line.description || line.name}</td>
-                      <td className="p-3 text-right">{line.quantity}</td>
-                      <td className="p-3 text-right">₹{(line.unitPrice / 100).toFixed(2)}</td>
-                      <td className="p-3 text-right">₹{(line.amount / 100).toFixed(2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        )}
       </Card>
     </div>
+  );
+}
+
+export default function InvoiceDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  return (
+    <Suspense fallback={<p>Loading invoice...</p>}>
+      <InvoiceContent params={params} />
+    </Suspense>
   );
 }

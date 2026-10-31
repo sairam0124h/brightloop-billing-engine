@@ -3,16 +3,15 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/server/auth/password";
 import { signupSchema } from "@/lib/schemas/auth";
 import { withApi, ConflictError } from "@/lib/errors";
-import { setAuthCookie } from "@/server/auth/jwt";
-import { createToken } from "@/server/auth/jwt";
+import { setAuthCookie, createToken } from "@/server/auth/jwt";
 
 export async function POST(request: NextRequest) {
   return withApi(async () => {
     const body = await request.json();
     const { email, password, name } = signupSchema.parse(body);
 
-    const existing = await prisma.user.findUnique({
-      where: { email },
+    const existing = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: "insensitive" } },
     });
 
     if (existing) {

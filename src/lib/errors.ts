@@ -68,7 +68,8 @@ function handleApiError(err: unknown): Response {
   );
 }
 
-export function withApi<T>(fn: () => Promise<T>): Promise<Response>;
+export function withApi(fn: () => never): Response;
+export function withApi<T extends Promise<unknown>>(fn: () => T): Promise<Response>;
 export function withApi<T>(fn: () => T): Response;
 export function withApi<T>(fn: () => T | Promise<T>): Response | Promise<Response> {
   try {

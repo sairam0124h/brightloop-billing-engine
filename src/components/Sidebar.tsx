@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Suspense } from "react";
 import { cn } from "@/lib/utils";
 
-export function Sidebar() {
+function SidebarNav() {
   const pathname = usePathname();
 
   return (
@@ -89,5 +90,13 @@ export function Sidebar() {
         </Link>
       </nav>
     </aside>
+  );
+}
+
+export function Sidebar() {
+  return (
+    <Suspense fallback={<aside className="w-64 bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 p-4" />}>
+      <SidebarNav />
+    </Suspense>
   );
 }

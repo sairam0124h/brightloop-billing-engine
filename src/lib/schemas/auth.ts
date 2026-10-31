@@ -7,7 +7,7 @@ export const passwordSchema = z
   .regex(/[a-z]/, "Password must contain at least one lowercase letter")
   .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character");
 
-export const emailSchema = z.string().email("Invalid email address").trim().toLowerCase();
+export const emailSchema = z.string().trim().toLowerCase().pipe(z.string().email("Invalid email address"));
 
 export const signupSchema = z.object({
   email: emailSchema,
