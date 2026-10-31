@@ -50,6 +50,7 @@ erDiagram
   Tax ||--o{ SubscriptionLine : "taxed by"
   QuotationTemplate ||--o{ Subscription : starts
   BillingRun ||--o{ Invoice : "created in"
+
   User ||--o{ AuditLog : actor
 ```
 
