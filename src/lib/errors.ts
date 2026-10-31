@@ -44,6 +44,9 @@ export class ConflictError extends AppError {
 }
 
 function handleApiError(err: unknown): Response {
+  if (err && typeof err === "object" && "digest" in err) {
+    throw err;
+  }
   if (err instanceof ZodError) {
     const fields: Record<string, string> = {};
     for (const issue of err.issues) {

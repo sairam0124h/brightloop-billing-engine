@@ -1,48 +1,55 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface Tax {
   id: string;
+  code: string;
   name: string;
   rate: number;
-  active: boolean;
+  isActive: boolean;
   createdAt: string;
 }
 
 export default function TaxesPage() {
   const [taxes, setTaxes] = useState<Tax[]>([]);
+  const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [rate, setRate] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function loadTaxes() {
-    const res = await fetch("/api/admin/taxes");
+  const loadTaxes = useCallback(async () => {
+    const res = await fetch("/api/taxes");
     if (res.ok) {
       const data = await res.json();
-      setTaxes(data.taxes);
+      setTaxes(data.data.taxes);
     }
-  }
+  }, []);
 
   useEffect(() => {
     loadTaxes();
-  }, []);
+  }, [loadTaxes]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/taxes", {
+      const res = await fetch("/api/taxes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, rate: parseFloat(rate) }),
+        body: JSON.stringify({
+          code: code.toUpperCase().trim(),
+          name,
+          rate: parseFloat(rate),
+          isActive: true,
+        }),
       });
 
       if (!res.ok) {
@@ -51,6 +58,7 @@ export default function TaxesPage() {
         return;
       }
 
+      setCode("");
       setName("");
       setRate("");
       await loadTaxes();
@@ -61,48 +69,74 @@ export default function TaxesPage() {
     }
   }
 
-  return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Tax Management</h1>
+  async function deleteTax(id: string) {
+    if (!confirm("Delete this tax?")) return;
+    await fetch(`/api/taxes/${id}`, { method: "DELETE" });
+    await loadTaxes();
+  }
 
-      <Card className="space-y-4">
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold">Taxes</h1>
+
+      <Card className="p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="code">Tax Code</Label>
+              <Input id="code" placeholder="GST_18" required value={code} onChange={(e) => setCode(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="name">Name</Label>
+              <Input id="name" placeholder="GST 18%" required value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="rate">Rate (%)</Label>
+              <Input id="rate" type="number" step="0.01" placeholder="18" required value={rate} onChange={(e) => setRate(e.target.value)} />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="rate">Rate (%)</Label>
-            <Input id="rate" type="number" step="0.01" required value={rate} onChange={(e) => setRate(e.target.value)} />
-          </div>
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" disabled={loading}>
             {loading ? "Creating..." : "Create Tax"}
           </Button>
         </form>
-
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm text-destructive mt-2">{error}</p>}
       </Card>
 
-      <Card>
+      <Card className="overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full text-sm">
             <thead>
-              <tr>
-                <th className="text-left pb-3">Name</th>
-                <th className="text-left pb-3">Rate</th>
-                <th className="text-left pb-3">Status</th>
-                <th className="text-left pb-3">Created</th>
+              <tr className="border-b bg-zinc-50 dark:bg-zinc-900">
+                <th className="text-left px-4 py-3 font-medium">Code</th>
+                <th className="text-left px-4 py-3 font-medium">Name</th>
+                <th className="text-left px-4 py-3 font-medium">Rate</th>
+                <th className="text-left px-4 py-3 font-medium">Status</th>
+                <th className="text-right px-4 py-3 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {taxes.map((t) => (
-                <tr key={t.id} className="border-t">
-                  <td className="py-3">{t.name}</td>
-                  <td className="py-3">{t.rate}%</td>
-                  <td className="py-3">
-                    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${t.active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}>{t.active ? "Active" : "Inactive"}</span>
+              {taxes.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="text-center py-8 text-muted-foreground">
+                    No taxes configured yet.
                   </td>
-                  <td className="py-3 text-sm text-muted-foreground">{new Date(t.createdAt).toLocaleDateString()}</td>
+                </tr>
+              )}
+              {taxes.map((t) => (
+                <tr key={t.id} className="border-b">
+                  <td className="px-4 py-3 font-mono font-medium">{t.code}</td>
+                  <td className="px-4 py-3">{t.name}</td>
+                  <td className="px-4 py-3 font-medium">{t.rate}%</td>
+                  <td className="px-4 py-3">
+                    <Badge variant={t.isActive ? "default" : "secondary"}>
+                      {t.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Button variant="destructive" size="sm" onClick={() => deleteTax(t.id)}>
+                      Delete
+                    </Button>
+                  </td>
                 </tr>
               ))}
             </tbody>
