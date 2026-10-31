@@ -12,6 +12,7 @@
     "test:int": "vitest run tests/integration",
     "e2e": "playwright test",
     "seed": "tsx prisma/seed.ts",
+    "seed:admin": "tsx prisma/seed-admin.ts",
     "seed:large": "tsx prisma/seed.ts --large",
     "db:reset": "prisma migrate reset --force"
   },
@@ -53,6 +54,7 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",
+    "vite": "^8.3.5",
     "vitest": "^5.0.5"
   }
 }
