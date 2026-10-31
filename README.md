@@ -81,6 +81,8 @@ Only the admin can create staff accounts. Public signups are always customers.
 
 ## Getting started
 
+All setup and execution commands should be run from the root directory of the cloned repository.
+
 Requirements: Node 20 or newer and a PostgreSQL database (a free Neon project works).
 
 ```bash
